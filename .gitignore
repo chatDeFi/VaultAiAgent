@@ -37,4 +37,4 @@ yarn-error.log*
 # package managers
 .npm
 yarn.lock
-package-lock.json 
+package-lock.json
