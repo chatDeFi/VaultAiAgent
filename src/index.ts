@@ -9,6 +9,21 @@ import dotenv from 'dotenv';
 import starterPlugin from './plugin';
 dotenv.config({ path: '../../.env' });
 
+// Configure more verbose logging for debugging the duplicate response issue
+logger.level = process.env.LOG_LEVEL || 'debug';
+
+// Add global object to track message processing
+declare global {
+  var _processedMessageIds: Record<string, boolean>;
+  var _processedThoughts: Record<string, boolean>;
+  var _sentResponses: Record<string, boolean>;
+}
+
+// Initialize global tracking objects
+global._processedMessageIds = {};
+global._processedThoughts = {};
+global._sentResponses = {};
+
 /**
  * Represents the default character (Eliza) with her specific attributes and behaviors.
  * Eliza responds to messages relevant to the community manager, offers help when asked, and stays focused on her job.

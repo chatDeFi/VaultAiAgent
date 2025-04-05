@@ -12,6 +12,7 @@ import {
   Service,
   type State,
   logger,
+  type EventPayload,
 } from '@elizaos/core';
 import { z } from 'zod';
 import starterTestSuite from './tests';
@@ -159,6 +160,17 @@ export class StarterService extends Service {
   }
 }
 
+// Define interface for MESSAGE_PROCESSING event
+interface MessageProcessingPayload extends EventPayload {
+  message?: {
+    id?: string;
+    content?: {
+      text?: string;
+      isThoughtProcess?: boolean;
+    };
+  };
+}
+
 const plugin: Plugin = {
   name: 'starter',
   description: 'A starter plugin for Eliza',
@@ -244,6 +256,26 @@ const plugin: Plugin = {
         logger.info('WORLD_JOINED event received');
         // print the keys
         logger.info(Object.keys(params));
+      },
+    ],
+    MESSAGE_PROCESSING: [
+      async (params: MessageProcessingPayload) => {
+        logger.info('MESSAGE_PROCESSING event received');
+        if (params.message?.content?.text && 
+            params.message.content.text.includes('PARSE_YIELD_STRATEGY') &&
+            params.message.content.text.includes('Thought Process')) {
+          logger.info('Detected thought process for yield strategy, marking as processed');
+          
+          if (!global._processedThoughts) {
+            global._processedThoughts = {};
+          }
+          
+          if (params.message.id) {
+            global._processedThoughts[params.message.id] = true;
+          }
+          
+          params.message.content.isThoughtProcess = true;
+        }
       },
     ],
   },

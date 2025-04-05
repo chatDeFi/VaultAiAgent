@@ -24,6 +24,8 @@
     "@elizaos/core": "1.0.0-beta.23",
     "@elizaos/plugin-anthropic": "1.0.0-beta.23",
     "@elizaos/plugin-bootstrap": "1.0.0-beta.23",
+    "@elizaos/plugin-browser": "1.0.0-beta.23",
+    "@elizaos/plugin-local-ai": "1.0.0-beta.23",
     "@elizaos/plugin-openai": "1.0.0-beta.23",
     "@elizaos/plugin-sql": "1.0.0-beta.23",
     "ethers": "^6.13.5",

@@ -46,6 +46,12 @@ export const parseStrategyAction: Action = {
       return false;
     }
     
+    // Skip if message ID has already been processed - additional check to prevent duplicates
+    if (message.id && global._processedMessageIds && global._processedMessageIds[message.id]) {
+      logger.info(`PARSE_YIELD_STRATEGY skipping already processed message ID: ${message.id}`);
+      return false;
+    }
+    
     const isValid = (
       (text.includes('allocate') || text.includes('invest') || text.includes('strategy')) &&
       (text.includes('yield') || text.includes('apy') || text.includes('earn') || 
@@ -64,16 +70,32 @@ export const parseStrategyAction: Action = {
     callback: HandlerCallback
   ) => {
     try {
+      // Initialize global message tracking if it doesn't exist
+      if (!global._processedMessageIds) {
+        global._processedMessageIds = {};
+      }
+      
       // Check if we've already processed this message to avoid duplicate responses
       if (message.content.processed === 'PARSE_YIELD_STRATEGY') {
         logger.info('Message already processed by PARSE_YIELD_STRATEGY, skipping');
         return;
       }
       
-      logger.info('Starting PARSE_YIELD_STRATEGY handler');
-
-      // Mark this message as being processed by this handler
+      // Additional message ID check to prevent duplicates
+      if (message.id && global._processedMessageIds[message.id]) {
+        logger.info(`Skipping duplicate processing of message ID: ${message.id}`);
+        return;
+      }
+      
+      logger.info(`Processing message ID: ${message.id || 'unknown'}`);
+      
+      // Mark message as processed both in message and in global registry
       message.content.processed = 'PARSE_YIELD_STRATEGY';
+      if (message.id) {
+        global._processedMessageIds[message.id] = true;
+      }
+      
+      logger.info('Starting PARSE_YIELD_STRATEGY handler');
 
       // Use the prompt structure for parsing strategies
       const prompt = `
@@ -173,6 +195,7 @@ Now parse the user's strategy.
         actions: ['PARSE_YIELD_STRATEGY'],
         parsedStrategy: strategyJSON,
         source: message.content.source,
+        responseId: `strategy-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
       };
 
       // Store the parsed strategy in the database
@@ -181,6 +204,7 @@ Now parse the user's strategy.
         content: {
           text: JSON.stringify(strategyJSON),
           strategy: strategyJSON,
+          responseId: responseContent.responseId
         },
         roomId: message.roomId,
         entityId: runtime.agentId,
@@ -188,6 +212,18 @@ Now parse the user's strategy.
       }, 'yieldStrategies');
 
       logger.info(`Stored yield strategy with ID: ${memoryId}`);
+
+      // Check if we've already sent this exact response
+      const alreadySent = (global._sentResponses = global._sentResponses || {});
+      const responseHash = JSON.stringify(strategyJSON);
+      
+      if (alreadySent[responseHash]) {
+        logger.info(`Skipping duplicate response with hash: ${responseHash.substring(0, 30)}...`);
+        return null;
+      }
+      
+      // Mark this response as sent
+      alreadySent[responseHash] = true;
 
       // Call back with the strategy - only once
       logger.info('Sending parsed strategy to user');
