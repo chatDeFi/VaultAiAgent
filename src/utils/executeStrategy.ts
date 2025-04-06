@@ -12,7 +12,8 @@ const VAULT_ABI = [
 
 // ABI for the lending pool and token contracts
 const LENDING_POOL_ABI = [
-  "function deposit(uint256 amount) external"
+  "function deposit(uint256 amount) external",
+  "function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external"
 ];
 
 // ERC20 Token ABI (for approval)
@@ -96,10 +97,24 @@ export async function executeLendingAllocation(
       amountToDeposit
     ]);
     
-    // Step 2: Encode the deposit function call
-    const depositCalldata = lendingPool.interface.encodeFunctionData("deposit", [
-      amountToDeposit
-    ]);
+    // Step 2: Encode the deposit/supply function call based on network
+    let depositCalldata;
+    
+    if (config.network === 'cello') {
+      // For Cello network, use the supply function
+      depositCalldata = lendingPool.interface.encodeFunctionData("supply", [
+        tokenAddress,            // asset address
+        amountToDeposit,         // amount
+        vaultAddress,            // onBehalfOf (using vault address)
+        0                        // referralCode (0 for no referral)
+      ]);
+      logger.info(`Using supply function for Cello network with asset: ${tokenAddress}`);
+    } else {
+      // For other networks, use the original deposit function
+      depositCalldata = lendingPool.interface.encodeFunctionData("deposit", [
+        amountToDeposit
+      ]);
+    }
     
     // Prepare parameters for the execute function (multiple calls in sequence)
     const contracts = [tokenAddress, lendingPoolAddress];
@@ -108,7 +123,12 @@ export async function executeLendingAllocation(
     
     logger.info('Executing approval and deposit via vault execute function');
     logger.info(`First approving lending pool (${lendingPoolAddress}) to spend ${amountToDeposit.toString()} tokens`);
-    logger.info(`Then depositing ${amountToDeposit.toString()} tokens into lending pool`);
+    
+    if (config.network === 'cello') {
+      logger.info(`Then supplying ${amountToDeposit.toString()} tokens to lending pool on behalf of ${vaultAddress}`);
+    } else {
+      logger.info(`Then depositing ${amountToDeposit.toString()} tokens into lending pool`);
+    }
     
     // Call the execute function on the vault to perform both operations
     const tx = await vault.execute(contracts, data, msgValues);
